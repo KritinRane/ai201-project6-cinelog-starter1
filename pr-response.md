@@ -1,7 +1,44 @@
 # PR Response Doc — CineLog Watchlist Feature
 
 ## AI Usage
-<!-- Fill in at the end — how you used AI tools during this project -->
+I used an AI coding assistant (Claude Code) at several points in this project. Concrete uses:
+
+- **Codebase orientation.** Before making changes I had the AI summarize `models.py` and
+  `services/watchlist_service.py` — each file's responsibility, its main functions, and which
+  other modules depend on it — so I understood the layout first.
+- **Understanding an existing pattern (Comment 2).** Following the milestone's guidance, I asked
+  the AI to *explain* what the deduplication check in `add_to_collection()` does — what
+  `.filter_by(...).first()` returns and when it raises — rather than to write the watchlist
+  version for me. I then wrote my own `add_to_watchlist` check. When I had the AI review it, it
+  caught that I was querying `CollectionEntry` instead of `WatchlistEntry` — a real bug — and the
+  correction to query the watchlist table was applied.
+- **Finding all call sites (Comment 1).** I used the AI to run a project-wide `grep` for
+  `save_to_watchlist` to confirm every reference (definition, import, call) before renaming.
+- **Verifying commit format.** I asked the AI to audit my commit messages against Conventional
+  Commits and flag any that bundled multiple logical changes. It flagged `update:` as a
+  non-standard type and the "added watchlist model and endpoint fixed a bug more changes" commit
+  as bundling several changes.
+- **Rebase help (Comment 6).** I worked through the rebase conflicts with the AI — it explained
+  the `.gitignore`, `models.py` (integer→UUID), and `pr-response.md` conflicts and helped me
+  confirm no markers or stale references remained afterward.
+
+**Comment 4 (visibility default).** The position was mine: I decided the watchlist should default
+to private because a user has the right not to display what they intend to watch. I asked the AI
+first to explain what the comment was asking for, then to help me phrase my stance in the required
+position/reasoning/tradeoff structure. My core argument (privacy is the user's right; sharing
+should be opt-in) is unchanged from what I brought in. What the AI added was tighter wording and
+surfacing the counter-tradeoff — that private-by-default slows adoption of the social/discovery
+features — which I read, agreed with, and chose to accept explicitly rather than weaken my
+position.
+
+**Comment 5 (sort order).** I asked the AI to lay out the options (adopt the maintainer's
+date-added, keep alphabetical, or a hybrid with a `?sort=` param) and the maintainer's likely
+reasoning. I chose to adopt date-added. The AI drafted the written argument, but the decision and
+the reason I accepted it — recency reflects what I'm about to watch, and consistency with
+`get_collection` reduces confusion for anyone using both endpoints — were what I directed it to
+argue. Where I built on its draft: I kept the point that alphabetical's findability benefit is
+better served by an explicit search than by forcing title order as the default, because that
+matched my own view that the default should optimize for the common case.
 
 ## Comment 1 — Rename
 **What I did:**
