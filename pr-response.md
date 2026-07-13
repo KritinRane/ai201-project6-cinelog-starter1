@@ -171,6 +171,83 @@ side effect I had to clean up afterward:
   dropped-rename `ImportError`; after re-applying the rename, the suite went green.
 
 ## PR Description
-<!-- Written at the end — feature overview, design decisions, manual testing steps -->
+
+### What this feature does
+Adds a **watchlist** to CineLog — a list of films a user wants to watch later, kept separate
+from their collection (films they've *already* watched). It's backed by a new `WatchlistEntry`
+model (`user_id`, `film_id`, `date_added`, `public`) and exposes two endpoints:
+
+- `POST /watchlist/<user_id>/add` — add a film to the user's watchlist.
+  Body: `{ "film_id": "<film-uuid>" }`. Returns `201` with the created entry.
+- `GET /watchlist/<user_id>` — return the user's watchlist.
+
+Business logic lives in `services/watchlist_service.py`:
+- **Deduplication** — adding a film that's already on the watchlist is rejected
+  (`AlreadyInWatchlistError`) instead of silently creating a duplicate.
+- **Validation** — adding a `film_id` that doesn't exist raises `FilmNotFoundError`.
+
+### Design decisions
+1. **Visibility default → private (`public=False`).** A watchlist is private by default; a user
+   must explicitly opt in to sharing it. I optimized for the user's reasonable expectation of
+   privacy — sharing personal "want to watch" data should be a deliberate choice, not something
+   that happens because a default was left on. (See Comment 4 for the full tradeoff discussion.)
+2. **Sort order → newest-first by `date_added`.** `GET /watchlist` returns entries most-recently-
+   added first, matching `get_collection`. This surfaces what the user is currently thinking about
+   and keeps both list endpoints behaving consistently. (See Comment 5.)
+
+### How to manually test
+Prerequisites: dependencies installed (`pip install -r requirements.txt`).
+
+1. **Start the app:**
+   ```
+   python app.py
+   ```
+   It serves at `http://127.0.0.1:5000`.
+
+2. **Seed a user and two films.** There are no create-user/create-film endpoints, so add them
+   through a Python shell run from the project root:
+   ```
+   python
+   >>> from app import create_app, db
+   >>> from models import User, Film
+   >>> app = create_app()
+   >>> with app.app_context():
+   ...     u  = User(username="alice", email="alice@example.com")
+   ...     f1 = Film(title="Heat", year=1995)
+   ...     f2 = Film(title="Arrival", year=2016)
+   ...     db.session.add_all([u, f1, f2]); db.session.commit()
+   ...     print("USER ", u.id); print("FILM1", f1.id); print("FILM2", f2.id)
+   ```
+   Copy the three printed UUIDs.
+
+3. **Add the first film to the watchlist:**
+   ```
+   curl -X POST http://127.0.0.1:5000/watchlist/<USER>/add \
+     -H "Content-Type: application/json" -d '{"film_id": "<FILM1>"}'
+   ```
+   Expect `201` and a JSON body containing `"public": false` — this confirms the
+   **private-by-default** design decision.
+
+4. **Add the second film** the same way, using `<FILM2>`.
+
+5. **View the watchlist:**
+   ```
+   curl http://127.0.0.1:5000/watchlist/<USER>
+   ```
+   Expect both films, with **FILM2 (added most recently) listed first** — this confirms the
+   **newest-first sort** design decision.
+
+6. **Verify deduplication:** re-run the step-3 `POST` with `<FILM1>` again. The service rejects
+   the duplicate (`AlreadyInWatchlistError`) and no second row is created.
+
+7. **Verify not-found handling:** `POST` with a made-up `film_id`. The service raises
+   `FilmNotFoundError`.
+
+   > Note: the route does not yet map `AlreadyInWatchlistError` / `FilmNotFoundError` to HTTP
+   > status codes, so steps 6–7 currently surface as `500` responses rather than `409` / `404`.
+   > Wiring those to proper status codes is a sensible follow-up.
+
+### Automated tests
+`pytest tests/ -q` → 5 passing, including `test_add_to_watchlist_nonexistent_film_raises`.
 
 ![My Project Screenshot](/Users/kritinrane/Desktop/Screenshot 2026-07-13 at 1.19.39 PM.png)
