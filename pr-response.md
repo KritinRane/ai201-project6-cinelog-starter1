@@ -126,8 +126,49 @@ thing better solved separately if it becomes a real need.
 
 ## Comment 6 — Rebase
 **What conflicted:**
+Rebasing `feature/watchlist` onto `origin/main` produced three conflicts, plus one
+side effect I had to clean up afterward:
+1. **`.gitignore` (add/add):** both `main` and my branch had independently added a
+   `.gitignore`. The entries mostly overlapped; `main`'s version additionally listed
+   `.pytest_cache/`.
+2. **`models.py` (the real one — the integer→UUID migration):** `main` had migrated
+   `Film.id` (and `CollectionEntry.film_id`) from an integer to a UUID
+   (`db.String(36)`). My branch added a new `WatchlistEntry` class whose
+   `film_id` was still declared `db.Integer`. `main` had no `WatchlistEntry` at all, so
+   the conflict was "keep my new class, but its foreign key type disagrees with the
+   migrated `Film.id` it points at."
+3. **`pr-response.md` (modify/delete):** `main` never had this file; my branch added it.
+4. **Side effect — a dropped commit:** when the rebase first stopped on the `.gitignore`
+   conflict, my Comment 1 rename commit got skipped, so `routes/watchlist/watchlist.py`
+   reverted to importing the old `save_to_watchlist` name while the service defined
+   `add_to_watchlist`. This surfaced as an `ImportError` only after the rebase finished.
+
 **How I resolved it:**
+1. **`.gitignore`:** took the union of both sides (kept every entry, including `main`'s
+   `.pytest_cache/`) and removed the conflict markers.
+2. **`models.py`:** kept my `WatchlistEntry` class and changed its foreign key from
+   `db.Column(db.Integer, ...)` to `db.Column(db.String(36), db.ForeignKey("film.id"))`
+   so it matches the UUID `Film.id` on `main`. An integer FK pointing at a UUID primary
+   key would break the relationship, so this type change is the actual point of the
+   rebase — it brings the watchlist feature in line with the migration. My Comment 4
+   change (`public` defaulting to `False`) was preserved in the same class.
+3. **`pr-response.md`:** kept my version (the filled-in response doc), since `main` simply
+   didn't have the file.
+4. **Dropped rename:** re-applied the rename in `routes/watchlist/watchlist.py`
+   (`save_to_watchlist` → `add_to_watchlist`) and committed it as a follow-up
+   (`fix: restore add_to_watchlist route`).
+
 **How I verified no conflict remains:**
+- `git status` is clean and `git log --oneline` shows a linear history on top of
+  `main`'s merge commit (`bbe206c`), with no rebase in progress.
+- Searched the tree for leftover conflict markers
+  (`grep -rn "<<<<<<<|=======|>>>>>>>"`) → none.
+- Searched for stale references (`grep -rn "save_to_watchlist"`) → none; the route and
+  service now agree on `add_to_watchlist`.
+- Confirmed both `film_id` foreign keys (`CollectionEntry` and `WatchlistEntry`) are now
+  `db.String(36)`, matching `Film.id`.
+- Ran the full test suite (`pytest tests/ -q`) → **5 passed**. This is what caught the
+  dropped-rename `ImportError`; after re-applying the rename, the suite went green.
 
 ## PR Description
 <!-- Written at the end — feature overview, design decisions, manual testing steps -->
