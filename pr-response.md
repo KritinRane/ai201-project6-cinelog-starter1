@@ -172,3 +172,5 @@ side effect I had to clean up afterward:
 
 ## PR Description
 <!-- Written at the end — feature overview, design decisions, manual testing steps -->
+
+![My Project Screenshot](/Users/kritinrane/Desktop/Screenshot 2026-07-13 at 1.19.39 PM.png)
