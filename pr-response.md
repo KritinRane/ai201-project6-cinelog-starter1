@@ -287,4 +287,6 @@ Prerequisites: dependencies installed (`pip install -r requirements.txt`).
 ### Automated tests
 `pytest tests/ -q` → 5 passing, including `test_add_to_watchlist_nonexistent_film_raises`.
 
-![My Project Screenshot](/Users/kritinrane/Desktop/Screenshot 2026-07-13 at 1.19.39 PM.png)
+## Git OneLine
+<img width="665" height="245" alt="Screenshot 2026-07-13 at 1 19 39 PM" src="https://github.com/user-attachments/assets/e45ed233-8468-40fa-a652-71fb4a11449b" />
+
